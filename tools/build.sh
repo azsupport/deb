@@ -39,6 +39,8 @@ for t in apt-ftparchive gpg gpgv dpkg-deb curl sha256sum md5sum sha1sum xz gzip;
 done
 mkdir -p "$site" || exit 1
 [ -z "$(ls -A "$site")" ] || err "$site is not empty"
+# absolute: the Release of each suite is made in its directory
+site="$(cd "$site" && pwd)" || exit 1
 
 # the key
 export GNUPGHOME="$w/gnupg"
@@ -123,8 +125,8 @@ for sv in $suites; do
                 -o APT::FTPArchive::Release::Architectures=amd64 \
                 -o "APT::FTPArchive::Release::Description=FFmpeg and ImageMagick 7 of azsupport for Ubuntu $ver (v3: x86-64-v3, v2: x86-64-v2)" \
                 release . > "$w/Release-$suite" && mv "$w/Release-$suite" Release &&
-            gpg --batch --yes --local-user "$fpr" --digest-algo SHA512 --clearsign -o InRelease Release &&
-            gpg --batch --yes --local-user "$fpr" --digest-algo SHA512 -abs -o Release.gpg Release &&
+            gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 --clearsign -o InRelease Release &&
+            gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 -abs -o Release.gpg Release &&
             gpgv --quiet --keyring "$site/az-apt.gpg" InRelease 2> /dev/null &&
             gpgv --quiet --keyring "$site/az-apt.gpg" Release.gpg Release 2> /dev/null
     ) || err "dists/$suite: the Release is not made or not signed"
