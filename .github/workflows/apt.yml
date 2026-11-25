@@ -1,6 +1,6 @@
 name: apt
 
-# The apt repository https://deb.azsupport.com on the GitHub Pages of this repository:
+# The apt repository https://deb.azsupport.dev on the GitHub Pages of this repository:
 # tools/build.sh takes the packages az-ffmpeg and az-imagemagick7 that azsupport/ports
 # publishes (its workflow ubuntu.yml, releases az-ubuntu<24|22>-amd64-<v3|v2>), makes the
 # suites noble and jammy with the components v3 and v2, signs them with the key of the
@@ -77,7 +77,7 @@ jobs:
     steps:
       - name: apt at the address of the site
         env:
-          URL: https://deb.azsupport.com
+          URL: https://deb.azsupport.dev
         run: |
           u="${URL%/}"
           curl -fsSL -o "$RUNNER_TEMP/azsupport.gpg" "$u/azsupport.gpg"

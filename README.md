@@ -1,4 +1,4 @@
-# deb.azsupport.com
+# deb.azsupport.dev
 
 The apt repository of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
 
@@ -24,8 +24,8 @@ install.
 
 ```
 sudo install -d -m 0755 /etc/apt/keyrings
-sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.com/azsupport.gpg
-echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.com $(. /etc/os-release && echo $VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
+sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.dev/azsupport.gpg
+echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.dev $(. /etc/os-release && echo $VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
 sudo apt-get install -y az-ffmpeg az-imagemagick7
 ```

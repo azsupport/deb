@@ -1,9 +1,9 @@
 #!/bin/sh
-# tools/build.sh <site> - the apt repository https://deb.azsupport.com (aZ, 25.11.2026:
+# tools/build.sh <site> - the apt repository https://deb.azsupport.dev (aZ, 25.11.2026:
 # «давай тогда уж и свой репозиторий убунты сделаем? чтобы по apt и ставилось и
 # обновлялось?», «а может репозиторий уже не ports делать? а apt?»; apt.azsupport.com
 # until 17:51 that day: «может зря назвали домен apt ? может надо было .deb раз файлы там
-# deb?»): the Debian packages
+# deb?»; deb.azsupport.com until 18:36: «пакеты на azsupport.dev ... делаем так»): the Debian packages
 # that the workflow ubuntu.yml of azsupport/ports publishes in its releases
 # az-ubuntu<24|22>-amd64-<v3|v2>, as a repository of the usual layout:
 #
@@ -21,13 +21,13 @@
 # Environment: APT_SIGNING_KEY (OpenPGP, armoured, without a passphrase; made by aZ, the
 # key 066D1CFEC0E3E3FA2CBA4B64261ACA1444125709 "aZ <github@azsupport.com>", since 25.11.2026
 # 18:16: «подпись пусть будет не APT , а aZ рекламируя меня»), SITE_URL
-# (the site as it is; default https://deb.azsupport.com), FORCE=1 (a new site even when
+# (the site as it is; default https://deb.azsupport.dev), FORCE=1 (a new site even when
 # no package changed). GITHUB_OUTPUT: changed=yes|no.
 # Exit status: 0 done, 1 failed (nothing to publish then).
 
 set -u
 site="${1:?usage: sh tools/build.sh <site directory>}"
-live="${SITE_URL:-https://deb.azsupport.com}"
+live="${SITE_URL:-https://deb.azsupport.dev}"
 src="https://github.com/azsupport/ports/releases/download"
 fpr_want=066D1CFEC0E3E3FA2CBA4B64261ACA1444125709
 suites="noble:24.04 jammy:22.04"
@@ -163,11 +163,11 @@ say "apt takes every suite and level (file:)"
 
 cat > "$site/index.html" <<EOF
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>deb.azsupport.com</title>
+<html lang="en"><head><meta charset="utf-8"><title>deb.azsupport.dev</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#f4f4f4;padding:1rem;overflow-x:auto}</style>
 </head><body>
-<h1>deb.azsupport.com</h1>
+<h1>deb.azsupport.dev</h1>
 <p>FFmpeg and ImageMagick 7 of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
 <code>az-ffmpeg</code>, <code>az-imagemagick7</code> (into /usr/local). Built by
 <a href="https://github.com/azsupport/ports">azsupport/ports</a> (tools/ubuntu), this repository by
@@ -175,8 +175,8 @@ cat > "$site/index.html" <<EOF
 <p>The level of the processor: <code>/lib64/ld-linux-x86-64.so.2 --help | grep supported</code> &mdash;
 x86-64-v3 (or v4): the component <code>v3</code>; x86-64-v2 only: <code>v2</code>.</p>
 <pre>sudo install -d -m 0755 /etc/apt/keyrings
-sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.com/azsupport.gpg
-echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.com \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
+sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.dev/azsupport.gpg
+echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.dev \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
 sudo apt-get install -y az-ffmpeg az-imagemagick7</pre>
 <p>The key: <code>$fpr</code> ($uid):
