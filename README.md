@@ -2,12 +2,12 @@
 
 The apt repository of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
 
-- `az-ffmpeg` — FFmpeg 9.1 (`/usr/local/bin/ffmpeg`, `ffprobe`), with the NVIDIA codecs and CUDA filters;
-- `az-imagemagick7` — ImageMagick 7 (`/usr/local/bin/magick` and `convert`, `identify`…), with a strict policy.
+- `azsupport-ffmpeg` — FFmpeg 9.1 (`/usr/local/bin/ffmpeg`, `ffprobe`), with the NVIDIA codecs and CUDA filters;
+- `azsupport-imagemagick7` — ImageMagick 7 (`/usr/local/bin/magick` and `convert`, `identify`…), with a strict policy.
 
 They are built by [azsupport/ports](https://github.com/azsupport/ports) (`tools/ubuntu/`, the workflow
 `ubuntu.yml`: the versions, patches and options of its FreeBSD packages, the libraries inside the programs) and
-published in its releases `az-ubuntu<24|22>-amd64-<v3|v2>`; this repository makes the apt repository of them
+published in its releases `azsupport-ubuntu<24|22>-amd64-<v3|v2>`; this repository makes the apt repository of them
 (`tools/build.sh`, the workflow `apt.yml`, on GitHub Pages: run right after each new build, and by an hourly
 schedule, which GitHub runs every few hours).
 
@@ -27,10 +27,10 @@ sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.dev/azsupport.gpg
 echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.dev $(. /etc/os-release && echo $VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
-sudo apt-get install -y az-ffmpeg az-imagemagick7
+sudo apt-get install -y azsupport-ffmpeg azsupport-imagemagick7
 ```
 
-The updates come with `apt-get upgrade`. To remove: `sudo apt-get remove -y az-ffmpeg az-imagemagick7`.
+The updates come with `apt-get upgrade`. To remove: `sudo apt-get remove -y azsupport-ffmpeg azsupport-imagemagick7`.
 
 ## The key
 

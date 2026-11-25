@@ -5,7 +5,7 @@
 # until 17:51 that day: «может зря назвали домен apt ? может надо было .deb раз файлы там
 # deb?»; deb.azsupport.com until 18:36: «пакеты на azsupport.dev ... делаем так»): the Debian packages
 # that the workflow ubuntu.yml of azsupport/ports publishes in its releases
-# az-ubuntu<24|22>-amd64-<v3|v2>, as a repository of the usual layout:
+# azsupport-ubuntu<24|22>-amd64-<v3|v2>, as a repository of the usual layout:
 #
 #   pool/<v3|v2>/a/<package>/<package>_<version>_amd64.deb
 #   dists/<noble|jammy>/<v3|v2>/binary-amd64/Packages, Packages.gz, Packages.xz
@@ -32,7 +32,7 @@ src="https://github.com/azsupport/ports/releases/download"
 fpr_want=066D1CFEC0E3E3FA2CBA4B64261ACA1444125709
 suites="noble:24.04 jammy:22.04"
 levels="v3 v2"
-pkgs="az-ffmpeg az-imagemagick7"
+pkgs="azsupport-ffmpeg azsupport-imagemagick7"
 w="$(mktemp -d "${RUNNER_TEMP:-/tmp}/apt.XXXXXX")" || exit 1
 say() { printf '[apt %s] %s\n' "$(date -u '+%H:%M:%S')" "$*"; }
 err() { echo "::error title=apt::$*"; exit 1; }
@@ -73,7 +73,7 @@ old=""
 for sv in $suites; do
     suite="${sv%%:*}"; ver="${sv#*:}"; rel="ubuntu${ver%%.*}"
     for lvl in $levels; do
-        tag="az-$rel-amd64-$lvl"
+        tag="azsupport-$rel-amd64-$lvl"
         d="$site/dists/$suite/$lvl/binary-amd64"
         mkdir -p "$d" "$w/$suite-$lvl" || exit 1
         : > "$d/Packages"
@@ -169,7 +169,7 @@ cat > "$site/index.html" <<EOF
 </head><body>
 <h1>deb.azsupport.dev</h1>
 <p>FFmpeg and ImageMagick 7 of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
-<code>az-ffmpeg</code>, <code>az-imagemagick7</code> (into /usr/local). Built by
+<code>azsupport-ffmpeg</code>, <code>azsupport-imagemagick7</code> (into /usr/local). Built by
 <a href="https://github.com/azsupport/ports">azsupport/ports</a> (tools/ubuntu), this repository by
 <a href="https://github.com/azsupport/deb">azsupport/deb</a>.</p>
 <p>The level of the processor: <code>/lib64/ld-linux-x86-64.so.2 --help | grep supported</code> &mdash;
@@ -178,7 +178,7 @@ x86-64-v3 (or v4): the component <code>v3</code>; x86-64-v2 only: <code>v2</code
 sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.dev/azsupport.gpg
 echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.dev \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
-sudo apt-get install -y az-ffmpeg az-imagemagick7</pre>
+sudo apt-get install -y azsupport-ffmpeg azsupport-imagemagick7</pre>
 <p>The key: <code>$fpr</code> ($uid):
 <code>gpg --show-keys /etc/apt/keyrings/azsupport.gpg</code>.</p>
 <p>Built $(date -u '+%Y-%m-%d %H:%M UTC'):$(printf ' %s' $new | sed 's/ \([^ ]*\)/<br><code>\1<\/code>/g')</p>

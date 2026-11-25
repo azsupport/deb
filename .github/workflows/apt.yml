@@ -1,8 +1,8 @@
 name: apt
 
 # The apt repository https://deb.azsupport.dev on the GitHub Pages of this repository:
-# tools/build.sh takes the packages az-ffmpeg and az-imagemagick7 that azsupport/ports
-# publishes (its workflow ubuntu.yml, releases az-ubuntu<24|22>-amd64-<v3|v2>), makes the
+# tools/build.sh takes the packages azsupport-ffmpeg and azsupport-imagemagick7 that azsupport/ports
+# publishes (its workflow ubuntu.yml, releases azsupport-ubuntu<24|22>-amd64-<v3|v2>), makes the
 # suites noble and jammy with the components v3 and v2, signs them with the key of the
 # secret APT_SIGNING_KEY (made by aZ) and, when a package changed, publishes the site;
 # then apt reads it at its address. Run by hand right after each new build of ports; the
@@ -88,8 +88,8 @@ jobs:
               mkdir -p "$q/lists/partial" "$q/archives/partial" "$q/etc"
               echo "deb [signed-by=$RUNNER_TEMP/azsupport.gpg] $u $s $l" > "$q/etc/sources.list"
               o="-q -o Dir::State::Lists=$q/lists -o Dir::Cache=$q -o Dir::Cache::archives=$q/archives -o Dir::Etc::SourceList=$q/etc/sources.list -o Dir::Etc::SourceParts=/nonexistent -o Debug::NoLocking=1"
-              if apt-get $o update > "$q.log" 2>&1 && ! grep -q -E '^(E|W):' "$q.log" && (cd "$q" && apt-get $o download az-ffmpeg az-imagemagick7 >> "$q.log" 2>&1); then
-                echo "$s $l: az-ffmpeg $(apt-cache $o policy az-ffmpeg | sed -n 's/^ *Candidate: //p'), az-imagemagick7 $(apt-cache $o policy az-imagemagick7 | sed -n 's/^ *Candidate: //p'); downloaded: $(ls "$q" | grep -c '\.deb$')"
+              if apt-get $o update > "$q.log" 2>&1 && ! grep -q -E '^(E|W):' "$q.log" && (cd "$q" && apt-get $o download azsupport-ffmpeg azsupport-imagemagick7 >> "$q.log" 2>&1); then
+                echo "$s $l: azsupport-ffmpeg $(apt-cache $o policy azsupport-ffmpeg | sed -n 's/^ *Candidate: //p'), azsupport-imagemagick7 $(apt-cache $o policy azsupport-imagemagick7 | sed -n 's/^ *Candidate: //p'); downloaded: $(ls "$q" | grep -c '\.deb$')"
               else
                 echo "::error title=apt::$s $l at $u: $(grep -E '^(E|W):' "$q.log" | head -n 2 | tr '\n' ' ')"
                 rc=1
