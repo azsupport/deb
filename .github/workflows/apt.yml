@@ -1,0 +1,96 @@
+name: apt
+
+# The apt repository https://apt.azsupport.com on the GitHub Pages of this repository:
+# tools/build.sh takes the packages az-ffmpeg and az-imagemagick7 that azsupport/ports
+# publishes (its workflow ubuntu.yml, releases az-ubuntu<24|22>-amd64-<v3|v2>), makes the
+# suites noble and jammy with the components v3 and v2, signs them with the key of the
+# secret APT_SIGNING_KEY (made by aZ) and, when a package changed, publishes the site;
+# then apt reads it at its address. Every hour (a new build of ports is here within the
+# hour), or by hand.
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Publish even when no package changed'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: apt
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.site.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: apt-ftparchive
+        run: command -v apt-ftparchive > /dev/null || sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends apt-utils
+
+      - name: The site
+        id: site
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: sh tools/build.sh site
+
+      - name: The site, for Pages
+        if: steps.site.outputs.changed == 'yes'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'yes'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # apt at the address of the site: each suite and level, a package downloaded
+  check:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: apt at the address of the site
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          u="${URL%/}"
+          curl -fsSL -o "$RUNNER_TEMP/az-apt.gpg" "$u/az-apt.gpg"
+          rc=0
+          for s in noble jammy; do
+            for l in v3 v2; do
+              q="$RUNNER_TEMP/q-$s-$l"
+              mkdir -p "$q/lists/partial" "$q/archives/partial" "$q/etc"
+              echo "deb [signed-by=$RUNNER_TEMP/az-apt.gpg] $u $s $l" > "$q/etc/sources.list"
+              o="-q -o Dir::State::Lists=$q/lists -o Dir::Cache=$q -o Dir::Cache::archives=$q/archives -o Dir::Etc::SourceList=$q/etc/sources.list -o Dir::Etc::SourceParts=/nonexistent -o Debug::NoLocking=1"
+              if apt-get $o update > "$q.log" 2>&1 && ! grep -q -E '^(E|W):' "$q.log" && (cd "$q" && apt-get $o download az-ffmpeg az-imagemagick7 >> "$q.log" 2>&1); then
+                echo "$s $l: az-ffmpeg $(apt-cache $o policy az-ffmpeg | sed -n 's/^ *Candidate: //p'), az-imagemagick7 $(apt-cache $o policy az-imagemagick7 | sed -n 's/^ *Candidate: //p'); downloaded: $(ls "$q" | grep -c '\.deb$')"
+              else
+                echo "::error title=apt::$s $l at $u: $(grep -E '^(E|W):' "$q.log" | head -n 2 | tr '\n' ' ')"
+                rc=1
+              fi
+            done
+          done
+          exit $rc
