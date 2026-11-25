@@ -5,24 +5,31 @@
 # until 17:51 that day: «может зря назвали домен apt ? может надо было .deb раз файлы там
 # deb?»; deb.azsupport.com until 18:36: «пакеты на azsupport.dev ... делаем так»): the Debian packages
 # that the workflow ubuntu.yml of azsupport/ports publishes in its releases
-# azsupport-ubuntu<24|22>-amd64-<v3|v2>, as a repository of the usual layout:
+# azsupport-<ubuntu24|ubuntu22|debian13|debian12>-amd64-<v3|v2>, as a repository of the usual layout:
 #
 #   pool/<v3|v2>/a/<package>/<package>_<version>_amd64.deb
-#   dists/<noble|jammy>/<v3|v2>/binary-amd64/Packages, Packages.gz, Packages.xz
-#   dists/<noble|jammy>/Release, InRelease, Release.gpg   signed with APT_SIGNING_KEY
+#   dists/<suite>/<v3|v2>/binary-amd64/Packages, Packages.gz, Packages.xz
+#   dists/<suite>/Release, InRelease, Release.gpg         signed with APT_SIGNING_KEY
 #   azsupport.gpg, azsupport.asc                          the public key (signed-by)
 #   index.html                                            how to install, for people
 #
-# A suite per release of Ubuntu (noble 24.04, jammy 22.04), a component per level of the
+# A suite per release of Ubuntu (noble 24.04, jammy 22.04) and of Debian (trixie 13,
+# bookworm 12; aZ, 25.11.2026: «на deb можно ещё варианты для дебияна положить вместе с
+# вариантами для убунты?»), a component per level of the
 # processor (v3: x86-64-v3, AVX2; v2: x86-64-v2). The versions before the new ones stay
 # in the pool and in Packages, taken from the site as it is (an apt that read the index
-# just before a publish still finds its files); older ones go.
+# just before a publish still finds its files); older ones go. The packages of each suite
+# are those built on its release (their versions end in ~ubuntu24.04, ~debian12...), so
+# their files in the pool differ. A suite and level that ports has not published yet
+# (no release) and the site has not either is left out, with a warning; once on the site,
+# its release missing fails the build.
 #
 # Environment: APT_SIGNING_KEY (OpenPGP, armoured, without a passphrase; made by aZ, the
 # key 066D1CFEC0E3E3FA2CBA4B64261ACA1444125709 "aZ <github@azsupport.com>", since 25.11.2026
 # 18:16: «подпись пусть будет не APT , а aZ рекламируя меня»), SITE_URL
 # (the site as it is; default https://deb.azsupport.dev), FORCE=1 (a new site even when
-# no package changed). GITHUB_OUTPUT: changed=yes|no.
+# no package changed). GITHUB_OUTPUT: changed=yes|no, suites=<suite>/<level>... (those of
+# the site made: the check of apt.yml at the address).
 # Exit status: 0 done, 1 failed (nothing to publish then).
 
 set -u
@@ -30,7 +37,8 @@ site="${1:?usage: sh tools/build.sh <site directory>}"
 live="${SITE_URL:-https://deb.azsupport.dev}"
 src="https://github.com/azsupport/ports/releases/download"
 fpr_want=066D1CFEC0E3E3FA2CBA4B64261ACA1444125709
-suites="noble:24.04 jammy:22.04"
+# <suite>:<system>:<release>
+suites="noble:ubuntu:24.04 jammy:ubuntu:22.04 trixie:debian:13 bookworm:debian:12"
 levels="v3 v2"
 pkgs="azsupport-ffmpeg azsupport-imagemagick7"
 w="$(mktemp -d "${RUNNER_TEMP:-/tmp}/apt.XXXXXX")" || exit 1
@@ -70,15 +78,29 @@ field() { sed -n "s/^$2: //p" "$1" | head -n 1; }
 
 new=""
 old=""
+made=""
 for sv in $suites; do
-    suite="${sv%%:*}"; ver="${sv#*:}"; rel="ubuntu${ver%%.*}"
+    suite="${sv%%:*}"; osv="${sv#*:}"; os="${osv%%:*}"; ver="${osv#*:}"
+    # rel: in the names of the releases and files (ubuntu24, debian12); sys: the end of
+    # the versions (~ubuntu24.04, ~debian12)
+    rel="$os${ver%%.*}"; sys="$os$ver"
+    case "$os" in ubuntu) label="Ubuntu $ver" ;; *) label="Debian $ver" ;; esac
+    comps=""
     for lvl in $levels; do
         tag="azsupport-$rel-amd64-$lvl"
         d="$site/dists/$suite/$lvl/binary-amd64"
-        mkdir -p "$d" "$w/$suite-$lvl" || exit 1
-        : > "$d/Packages"
+        mkdir -p "$w/$suite-$lvl" || exit 1
         # the site as it is: its Packages of this suite and level (none the first time)
         curl -fsSL -o "$w/$suite-$lvl/Packages.live" "$live/dists/$suite/$lvl/binary-amd64/Packages" 2>/dev/null || : > "$w/$suite-$lvl/Packages.live"
+        # not published yet: no release in ports (HTTP 404 of its first package) and nothing
+        # of it on the site
+        c="$(curl -sSL -r 0-0 -o /dev/null -w '%{http_code}' "$src/$tag/${pkgs%% *}-$rel-amd64-$lvl.deb" 2>/dev/null)"
+        if [ "$c" = 404 ] && [ ! -s "$w/$suite-$lvl/Packages.live" ]; then
+            echo "::warning title=apt::$suite/$lvl: no release $tag in azsupport/ports yet, and not on the site: left out"
+            continue
+        fi
+        mkdir -p "$d" || exit 1
+        : > "$d/Packages"
         for p in $pkgs; do
             f="$w/$suite-$lvl/$p.deb"
             curl -fsSL --retry 3 -o "$f" "$src/$tag/$p-$rel-amd64-$lvl.deb" &&
@@ -87,7 +109,7 @@ for sv in $suites; do
             [ "$(cut -d ' ' -f 1 "$f.sha256")" = "$(sha256sum < "$f" | cut -d ' ' -f 1)" ] || err "$tag: $p does not match its .sha256"
             [ "$(dpkg-deb -f "$f" Package)" = "$p" ] && [ "$(dpkg-deb -f "$f" Architecture)" = amd64 ] || err "$tag: the file of $p is not $p for amd64"
             v="$(dpkg-deb -f "$f" Version)"
-            case "$v" in *"~$rel."*) ;; *) err "$tag: $p $v is not a build for Ubuntu $ver" ;; esac
+            case "$v" in *"~$sys") ;; *) err "$tag: $p $v is not a build for $label (~$sys)" ;; esac
             path="pool/$lvl/a/$p/${p}_${v}_amd64.deb"
             mkdir -p "$site/pool/$lvl/a/$p" && cp "$f" "$site/$path" || exit 1
             entry "$site/$path" "$path" >> "$d/Packages"
@@ -122,14 +144,17 @@ for sv in $suites; do
         done
         gzip -9nk "$d/Packages" && xz -9k "$d/Packages" || exit 1
         say "$suite/$lvl: $(grep -c '^Package: ' "$d/Packages") packages"
+        comps="$comps $lvl"
+        made="$made $suite/$lvl"
     done
+    [ -n "$comps" ] || { say "$suite: left out ($label: nothing published yet)"; continue; }
     (
         cd "$site/dists/$suite" &&
             apt-ftparchive -o APT::FTPArchive::Release::Origin=azsupport -o APT::FTPArchive::Release::Label=azsupport \
                 -o "APT::FTPArchive::Release::Suite=$suite" -o "APT::FTPArchive::Release::Codename=$suite" \
-                -o "APT::FTPArchive::Release::Version=$ver" -o "APT::FTPArchive::Release::Components=$levels" \
+                -o "APT::FTPArchive::Release::Version=$ver" -o "APT::FTPArchive::Release::Components=${comps# }" \
                 -o APT::FTPArchive::Release::Architectures=amd64 \
-                -o "APT::FTPArchive::Release::Description=FFmpeg and ImageMagick 7 of azsupport for Ubuntu $ver (v3: x86-64-v3, v2: x86-64-v2)" \
+                -o "APT::FTPArchive::Release::Description=FFmpeg and ImageMagick 7 of azsupport for $label (v3: x86-64-v3, v2: x86-64-v2)" \
                 release . > "$w/Release-$suite" && mv "$w/Release-$suite" Release &&
             gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 --clearsign -o InRelease Release &&
             gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 -abs -o Release.gpg Release &&
@@ -138,10 +163,12 @@ for sv in $suites; do
     ) || err "dists/$suite: the Release is not made or not signed"
 done
 
+[ -n "$made" ] || err "nothing published in azsupport/ports: no suite"
 # apt reads each suite and level of the new site (file:) and takes the new versions
 for sv in $suites; do
     suite="${sv%%:*}"
     for lvl in $levels; do
+        case " $made " in *" $suite/$lvl "*) ;; *) continue ;; esac
         q="$w/apt-$suite-$lvl"
         mkdir -p "$q/lists/partial" "$q/archives/partial" "$q/etc" || exit 1
         echo "deb [signed-by=$site/azsupport.gpg] file:$site $suite $lvl" > "$q/etc/sources.list"
@@ -159,7 +186,8 @@ for sv in $suites; do
         done
     done
 done
-say "apt takes every suite and level (file:)"
+say "apt takes every suite and level (file:):$made"
+out "suites=${made# }"
 
 cat > "$site/index.html" <<EOF
 <!DOCTYPE html>
@@ -168,7 +196,8 @@ cat > "$site/index.html" <<EOF
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#f4f4f4;padding:1rem;overflow-x:auto}</style>
 </head><body>
 <h1>deb.azsupport.dev</h1>
-<p>FFmpeg and ImageMagick 7 of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
+<p>FFmpeg and ImageMagick 7 of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy) and for Debian 13
+(trixie) and 12 (bookworm), amd64:
 <code>azsupport-ffmpeg</code>, <code>azsupport-imagemagick7</code> (into /usr/local). Built by
 <a href="https://github.com/azsupport/ports">azsupport/ports</a> (tools/ubuntu), this repository by
 <a href="https://github.com/azsupport/deb">azsupport/deb</a>.</p>
@@ -179,6 +208,9 @@ sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.dev/azs
 echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.dev \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
 sudo apt-get install -y azsupport-ffmpeg azsupport-imagemagick7</pre>
+<p>The release (noble, jammy, trixie, bookworm) is that of <code>/etc/os-release</code>. As root where
+sudo is not installed (Debian with a root password): the same lines without <code>sudo</code>; where curl
+is missing, <code>apt-get install -y curl ca-certificates</code> first.</p>
 <p>The key: <code>$fpr</code> ($uid):
 <code>gpg --show-keys /etc/apt/keyrings/azsupport.gpg</code>.</p>
 <p>Built $(date -u '+%Y-%m-%d %H:%M UTC'):$(printf ' %s' $new | sed 's/ \([^ ]*\)/<br><code>\1<\/code>/g')</p>

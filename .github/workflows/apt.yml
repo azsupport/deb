@@ -2,8 +2,9 @@ name: apt
 
 # The apt repository https://deb.azsupport.dev on the GitHub Pages of this repository:
 # tools/build.sh takes the packages azsupport-ffmpeg and azsupport-imagemagick7 that azsupport/ports
-# publishes (its workflow ubuntu.yml, releases azsupport-ubuntu<24|22>-amd64-<v3|v2>), makes the
-# suites noble and jammy with the components v3 and v2, signs them with the key of the
+# publishes (its workflow ubuntu.yml, releases azsupport-<ubuntu24|ubuntu22|debian13|debian12>-amd64-<v3|v2>),
+# makes the suites noble, jammy, trixie and bookworm with the components v3 and v2 (those
+# published), signs them with the key of the
 # secret APT_SIGNING_KEY (made by aZ) and, when a package changed, publishes the site;
 # then apt reads it at its address. Run by hand right after each new build of ports; the
 # hourly schedule is the fallback (GitHub drops most runs of such schedules: every few
@@ -34,6 +35,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       changed: ${{ steps.site.outputs.changed }}
+      suites: ${{ steps.site.outputs.suites }}
     steps:
       - uses: actions/checkout@v5
 
@@ -68,7 +70,8 @@ jobs:
         uses: actions/deploy-pages@v4
 
   # apt at the address of the site, every run (also when nothing was published: the site
-  # as servers see it): each suite and level, both packages downloaded
+  # as servers see it): each suite and level that tools/build.sh made, both packages
+  # downloaded
   check:
     needs: [build, deploy]
     if: ${{ always() && needs.build.result == 'success' && needs.deploy.result != 'failure' }}
@@ -78,12 +81,15 @@ jobs:
       - name: apt at the address of the site
         env:
           URL: https://deb.azsupport.dev
+          SUITES: ${{ needs.build.outputs.suites }}
         run: |
           u="${URL%/}"
+          [ -n "$SUITES" ] || { echo "::error title=apt::no suite from tools/build.sh"; exit 1; }
           curl -fsSL -o "$RUNNER_TEMP/azsupport.gpg" "$u/azsupport.gpg"
           rc=0
-          for s in noble jammy; do
+          for s in noble jammy trixie bookworm; do
             for l in v3 v2; do
+              case " $SUITES " in *" $s/$l "*) ;; *) echo "$s $l: not made (not published by azsupport/ports yet)"; continue ;; esac
               q="$RUNNER_TEMP/q-$s-$l"
               mkdir -p "$q/lists/partial" "$q/archives/partial" "$q/etc"
               echo "deb [signed-by=$RUNNER_TEMP/azsupport.gpg] $u $s $l" > "$q/etc/sources.list"
