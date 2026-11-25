@@ -34,7 +34,7 @@ The updates come with `apt-get upgrade`. To remove: `sudo apt-get remove -y az-f
 
 ## The key
 
-`22966A9D7BCB1232C702A2C4126B8086861CFADA` — `APT <github@azsupport.com>`, RSA 4096:
+`066D1CFEC0E3E3FA2CBA4B64261ACA1444125709` — `aZ <github@azsupport.com>`, RSA 4096:
 
 ```
 gpg --show-keys /etc/apt/keyrings/azsupport.gpg

@@ -19,7 +19,8 @@
 # just before a publish still finds its files); older ones go.
 #
 # Environment: APT_SIGNING_KEY (OpenPGP, armoured, without a passphrase; made by aZ, the
-# key 22966A9D7BCB1232C702A2C4126B8086861CFADA "APT <github@azsupport.com>"), SITE_URL
+# key 066D1CFEC0E3E3FA2CBA4B64261ACA1444125709 "aZ <github@azsupport.com>", since 25.11.2026
+# 18:16: «подпись пусть будет не APT , а aZ рекламируя меня»), SITE_URL
 # (the site as it is; default https://deb.azsupport.com), FORCE=1 (a new site even when
 # no package changed). GITHUB_OUTPUT: changed=yes|no.
 # Exit status: 0 done, 1 failed (nothing to publish then).
@@ -28,7 +29,7 @@ set -u
 site="${1:?usage: sh tools/build.sh <site directory>}"
 live="${SITE_URL:-https://deb.azsupport.com}"
 src="https://github.com/azsupport/ports/releases/download"
-fpr_want=22966A9D7BCB1232C702A2C4126B8086861CFADA
+fpr_want=066D1CFEC0E3E3FA2CBA4B64261ACA1444125709
 suites="noble:24.04 jammy:22.04"
 levels="v3 v2"
 pkgs="az-ffmpeg az-imagemagick7"
@@ -53,9 +54,10 @@ printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --quiet --import 2> "$w/import.lo
 fpr="$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" { print $10; exit }')"
 [ "$fpr" = "$fpr_want" ] || err "the key of APT_SIGNING_KEY is $fpr, not $fpr_want"
 gpg --batch --export "$fpr" > "$site/azsupport.gpg" && gpg --batch --armor --export "$fpr" > "$site/azsupport.asc" || exit 1
-# its user ID, for index.html
-uid="$(gpg --batch --with-colons --list-keys "$fpr" | awk -F: '$1 == "uid" { print $10; exit }' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
-say "key $fpr"
+# its user ID, for the log and index.html
+uid="$(gpg --batch --with-colons --list-keys "$fpr" | awk -F: '$1 == "uid" { print $10; exit }')"
+say "key $fpr $uid"
+uid="$(printf '%s' "$uid" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
 
 # entry <deb> <path in the site>: its stanza of Packages
 entry() {
