@@ -66,15 +66,17 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-  # apt at the address of the site: each suite and level, a package downloaded
+  # apt at the address of the site, every run (also when nothing was published: the site
+  # as servers see it): each suite and level, both packages downloaded
   check:
-    needs: deploy
+    needs: [build, deploy]
+    if: ${{ always() && needs.build.result == 'success' && needs.deploy.result != 'failure' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: apt at the address of the site
         env:
-          URL: ${{ needs.deploy.outputs.url }}
+          URL: https://apt.azsupport.com
         run: |
           u="${URL%/}"
           curl -fsSL -o "$RUNNER_TEMP/az-apt.gpg" "$u/az-apt.gpg"
