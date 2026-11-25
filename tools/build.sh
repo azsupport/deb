@@ -1,14 +1,16 @@
 #!/bin/sh
-# tools/build.sh <site> - the apt repository https://apt.azsupport.com (aZ, 25.11.2026:
+# tools/build.sh <site> - the apt repository https://deb.azsupport.com (aZ, 25.11.2026:
 # «давай тогда уж и свой репозиторий убунты сделаем? чтобы по apt и ставилось и
-# обновлялось?», «а может репозиторий уже не ports делать? а apt?»): the Debian packages
+# обновлялось?», «а может репозиторий уже не ports делать? а apt?»; apt.azsupport.com
+# until 17:51 that day: «может зря назвали домен apt ? может надо было .deb раз файлы там
+# deb?»): the Debian packages
 # that the workflow ubuntu.yml of azsupport/ports publishes in its releases
 # az-ubuntu<24|22>-amd64-<v3|v2>, as a repository of the usual layout:
 #
 #   pool/<v3|v2>/a/<package>/<package>_<version>_amd64.deb
 #   dists/<noble|jammy>/<v3|v2>/binary-amd64/Packages, Packages.gz, Packages.xz
 #   dists/<noble|jammy>/Release, InRelease, Release.gpg   signed with APT_SIGNING_KEY
-#   az-apt.gpg, az-apt.asc                                the public key (signed-by)
+#   azsupport.gpg, azsupport.asc                          the public key (signed-by)
 #   index.html                                            how to install, for people
 #
 # A suite per release of Ubuntu (noble 24.04, jammy 22.04), a component per level of the
@@ -17,14 +19,14 @@
 # just before a publish still finds its files); older ones go.
 #
 # Environment: APT_SIGNING_KEY (OpenPGP, armoured, without a passphrase; made by aZ, the
-# key 22966A9D7BCB1232C702A2C4126B8086861CFADA "APT <github@azsupport.com>"), AZ_APT_URL
-# (the site as it is; default https://apt.azsupport.com), FORCE=1 (a new site even when
+# key 22966A9D7BCB1232C702A2C4126B8086861CFADA "APT <github@azsupport.com>"), SITE_URL
+# (the site as it is; default https://deb.azsupport.com), FORCE=1 (a new site even when
 # no package changed). GITHUB_OUTPUT: changed=yes|no.
 # Exit status: 0 done, 1 failed (nothing to publish then).
 
 set -u
 site="${1:?usage: sh tools/build.sh <site directory>}"
-live="${AZ_APT_URL:-https://apt.azsupport.com}"
+live="${SITE_URL:-https://deb.azsupport.com}"
 src="https://github.com/azsupport/ports/releases/download"
 fpr_want=22966A9D7BCB1232C702A2C4126B8086861CFADA
 suites="noble:24.04 jammy:22.04"
@@ -50,7 +52,9 @@ trap 'gpgconf --kill gpg-agent > /dev/null 2>&1' EXIT
 printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --quiet --import 2> "$w/import.log" || err "the key does not import: $(tail -n 1 "$w/import.log")"
 fpr="$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" { print $10; exit }')"
 [ "$fpr" = "$fpr_want" ] || err "the key of APT_SIGNING_KEY is $fpr, not $fpr_want"
-gpg --batch --export "$fpr" > "$site/az-apt.gpg" && gpg --batch --armor --export "$fpr" > "$site/az-apt.asc" || exit 1
+gpg --batch --export "$fpr" > "$site/azsupport.gpg" && gpg --batch --armor --export "$fpr" > "$site/azsupport.asc" || exit 1
+# its user ID, for index.html
+uid="$(gpg --batch --with-colons --list-keys "$fpr" | awk -F: '$1 == "uid" { print $10; exit }' | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
 say "key $fpr"
 
 # entry <deb> <path in the site>: its stanza of Packages
@@ -127,8 +131,8 @@ for sv in $suites; do
                 release . > "$w/Release-$suite" && mv "$w/Release-$suite" Release &&
             gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 --clearsign -o InRelease Release &&
             gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$fpr" --digest-algo SHA512 -abs -o Release.gpg Release &&
-            gpgv --quiet --keyring "$site/az-apt.gpg" InRelease 2> /dev/null &&
-            gpgv --quiet --keyring "$site/az-apt.gpg" Release.gpg Release 2> /dev/null
+            gpgv --quiet --keyring "$site/azsupport.gpg" InRelease 2> /dev/null &&
+            gpgv --quiet --keyring "$site/azsupport.gpg" Release.gpg Release 2> /dev/null
     ) || err "dists/$suite: the Release is not made or not signed"
 done
 
@@ -138,7 +142,7 @@ for sv in $suites; do
     for lvl in $levels; do
         q="$w/apt-$suite-$lvl"
         mkdir -p "$q/lists/partial" "$q/archives/partial" "$q/etc" || exit 1
-        echo "deb [signed-by=$site/az-apt.gpg] file:$site $suite $lvl" > "$q/etc/sources.list"
+        echo "deb [signed-by=$site/azsupport.gpg] file:$site $suite $lvl" > "$q/etc/sources.list"
         a() {
             sb=""; [ "$(id -u)" != 0 ] || sb="-o APT::Sandbox::User=root"
             # shellcheck disable=SC2086
@@ -157,24 +161,24 @@ say "apt takes every suite and level (file:)"
 
 cat > "$site/index.html" <<EOF
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>apt.azsupport.com</title>
+<html lang="en"><head><meta charset="utf-8"><title>deb.azsupport.com</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#f4f4f4;padding:1rem;overflow-x:auto}</style>
 </head><body>
-<h1>apt.azsupport.com</h1>
+<h1>deb.azsupport.com</h1>
 <p>FFmpeg and ImageMagick 7 of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd64:
 <code>az-ffmpeg</code>, <code>az-imagemagick7</code> (into /usr/local). Built by
 <a href="https://github.com/azsupport/ports">azsupport/ports</a> (tools/ubuntu), this repository by
-<a href="https://github.com/azsupport/apt">azsupport/apt</a>.</p>
+<a href="https://github.com/azsupport/deb">azsupport/deb</a>.</p>
 <p>The level of the processor: <code>/lib64/ld-linux-x86-64.so.2 --help | grep supported</code> &mdash;
 x86-64-v3 (or v4): the component <code>v3</code>; x86-64-v2 only: <code>v2</code>.</p>
 <pre>sudo install -d -m 0755 /etc/apt/keyrings
-sudo curl -fsSL -o /etc/apt/keyrings/az-apt.gpg https://apt.azsupport.com/az-apt.gpg
-echo "deb [signed-by=/etc/apt/keyrings/az-apt.gpg] https://apt.azsupport.com \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/az.list
+sudo curl -fsSL -o /etc/apt/keyrings/azsupport.gpg https://deb.azsupport.com/azsupport.gpg
+echo "deb [signed-by=/etc/apt/keyrings/azsupport.gpg] https://deb.azsupport.com \$(. /etc/os-release &amp;&amp; echo \$VERSION_CODENAME) v3" | sudo tee /etc/apt/sources.list.d/azsupport.list
 sudo apt-get update
 sudo apt-get install -y az-ffmpeg az-imagemagick7</pre>
-<p>The key: <code>$fpr</code> (APT &lt;github@azsupport.com&gt;):
-<code>gpg --show-keys /etc/apt/keyrings/az-apt.gpg</code>.</p>
+<p>The key: <code>$fpr</code> ($uid):
+<code>gpg --show-keys /etc/apt/keyrings/azsupport.gpg</code>.</p>
 <p>Built $(date -u '+%Y-%m-%d %H:%M UTC'):$(printf ' %s' $new | sed 's/ \([^ ]*\)/<br><code>\1<\/code>/g')</p>
 </body></html>
 EOF
