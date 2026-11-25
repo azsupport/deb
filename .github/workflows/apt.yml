@@ -5,8 +5,9 @@ name: apt
 # publishes (its workflow ubuntu.yml, releases az-ubuntu<24|22>-amd64-<v3|v2>), makes the
 # suites noble and jammy with the components v3 and v2, signs them with the key of the
 # secret APT_SIGNING_KEY (made by aZ) and, when a package changed, publishes the site;
-# then apt reads it at its address. Every hour (a new build of ports is here within the
-# hour), or by hand.
+# then apt reads it at its address. Run by hand right after each new build of ports; the
+# hourly schedule is the fallback (GitHub drops most runs of such schedules: every few
+# hours).
 
 on:
   schedule:

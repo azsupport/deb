@@ -8,7 +8,8 @@ The apt repository of azsupport for Ubuntu 24.04 (noble) and 22.04 (jammy), amd6
 They are built by [azsupport/ports](https://github.com/azsupport/ports) (`tools/ubuntu/`, the workflow
 `ubuntu.yml`: the versions, patches and options of its FreeBSD packages, the libraries inside the programs) and
 published in its releases `az-ubuntu<24|22>-amd64-<v3|v2>`; this repository makes the apt repository of them
-(`tools/build.sh`, the workflow `apt.yml`: every hour, on GitHub Pages).
+(`tools/build.sh`, the workflow `apt.yml`, on GitHub Pages: run right after each new build, and by an hourly
+schedule, which GitHub runs every few hours).
 
 ## Install
 
